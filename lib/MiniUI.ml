@@ -261,7 +261,7 @@ let rec fit_height box =
   in
   { box with children; needed_height; min_height }
 
-let rec grow_box_width box =
+let rec size_width box =
   let remaining_width = box.width -. box.needed_width in
   if box.vertical then
     {
@@ -277,7 +277,7 @@ let rec grow_box_width box =
                 }
               else child
             in
-            grow_box_width child)
+            size_width child)
           box.children;
     }
   else
@@ -291,11 +291,11 @@ let rec grow_box_width box =
                 { child with width = remaining_width }
               else child
             in
-            grow_box_width child)
+            size_width child)
           box.children;
     }
 
-let rec grow_box_height box =
+let rec size_height box =
   let remaining_height = box.height -. box.needed_height in
   if box.vertical then
     {
@@ -308,7 +308,7 @@ let rec grow_box_height box =
                 { child with height = remaining_height }
               else child
             in
-            grow_box_height child)
+            size_height child)
           box.children;
     }
   else
@@ -325,13 +325,12 @@ let rec grow_box_height box =
                 }
               else child
             in
-            grow_box_height child)
+            size_height child)
           box.children;
     }
 
 let build box =
-  box |> fit_width |> grow_box_width |> fit_height |> grow_box_height
-  |> position
+  box |> fit_width |> size_width |> fit_height |> size_height |> position
 
 let rec draw box =
   let open Raylib in
@@ -348,12 +347,9 @@ let rec draw box =
   draw_text_ex box.text_font box.text
     (Vector2.create box.x box.y)
     box.text_size box.text_spacing box.text_color;
-  draw_rectangle_lines_ex
+  (*draw_rectangle_lines_ex
     (Rectangle.create box.x box.y box.width box.height)
-    1. Color.skyblue;
-  draw_rectangle_lines_ex
-    (Rectangle.create box.x box.y box.max_width box.min_height)
-    1. Color.red;
+    1. Color.skyblue;*)
   let _ =
     List.for_all
       (fun child ->
