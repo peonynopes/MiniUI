@@ -1,9 +1,9 @@
 open MiniUI
 
-let init () = ()
-let update () = ()
+let init () = false
+let update hover = hover
 
-let view () info =
+let view hover info =
   let unit = min info.monitor_width info.monitor_height in
   box ()
   |> size info.width info.height
@@ -15,7 +15,9 @@ let view () info =
          box () |> text "Hello from MiniUI!"
          |> text_spacing (unit *. 0.01)
          |> text_size (unit *. 0.1)
-         |> text_color Color.black;
+         |> text_color (if hover then Color.blue else Color.black)
+         |> on_mouse_enter (fun x y dx dy box state -> true)
+         |> on_mouse_leave (fun x y dx dy box state -> false);
          box () |> text "(and Raylib)"
          |> text_spacing (unit *. 0.005)
          |> text_size (unit *. 0.05)

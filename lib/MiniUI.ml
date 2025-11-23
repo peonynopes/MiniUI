@@ -35,12 +35,15 @@ type info = {
 
 type size_mode = Fit | Fixed | Grow
 
-type box = {
+type 'a mouse_motion_callback =
+  (float -> float -> float -> float -> 'a box -> 'a -> 'a) option
+
+and 'a box = {
   x : float;
   y : float;
   width : float;
   height : float;
-  children : box list;
+  children : 'a box list;
   floating : bool;
   vertical : bool;
   gap : float;
@@ -65,6 +68,9 @@ type box = {
   min_height : float;
   max_width : float;
   max_height : float;
+  on_mouse_moved : 'a mouse_motion_callback;
+  on_mouse_enter : 'a mouse_motion_callback;
+  on_mouse_leave : 'a mouse_motion_callback;
 }
 
 let box () =
@@ -98,6 +104,9 @@ let box () =
     min_height = 0.;
     max_width = infinity;
     max_height = infinity;
+    on_mouse_moved = None;
+    on_mouse_enter = None;
+    on_mouse_leave = None;
   }
 
 let at x y box = { box with x; y; floating = true }
@@ -128,6 +137,15 @@ let min_width min_width box = { box with min_width }
 let min_height min_height box = { box with min_height }
 let max_width max_width box = { box with max_width }
 let max_height max_height box = { box with max_height }
+
+let on_mouse_moved on_mouse_moved box =
+  { box with on_mouse_moved = Some on_mouse_moved }
+
+let on_mouse_enter on_mouse_enter box =
+  { box with on_mouse_enter = Some on_mouse_enter }
+
+let on_mouse_leave on_mouse_leave box =
+  { box with on_mouse_leave = Some on_mouse_leave }
 
 let grow box =
   { box with width_mode = Grow; height_mode = Grow; width = 0.; height = 0. }
@@ -359,6 +377,45 @@ let rec draw box =
   in
   ()
 
+let rec on_mouse_motion x y delta_x delta_y box state =
+  let previous_x, previous_y = (x -. delta_x, y -. delta_y) in
+  let was_in_box =
+    previous_x >= box.x && previous_y >= box.y
+    && previous_x -. box.x <= box.width
+    && previous_y -. box.y <= box.height
+  in
+  let is_in_box =
+    x >= box.x && y >= box.y
+    && x -. box.x <= box.width
+    && y -. box.y <= box.height
+  in
+  let state =
+    match box.on_mouse_enter with
+    | None -> state
+    | Some callback ->
+        if (not was_in_box) && is_in_box then
+          callback x y delta_x delta_y box state
+        else state
+  in
+  let state =
+    match box.on_mouse_moved with
+    | None -> state
+    | Some callback ->
+        if was_in_box && is_in_box then callback x y delta_x delta_y box state
+        else state
+  in
+  let state =
+    match box.on_mouse_leave with
+    | None -> state
+    | Some callback ->
+        if was_in_box && not is_in_box then
+          callback x y delta_x delta_y box state
+        else state
+  in
+  List.fold_left
+    (fun state child -> on_mouse_motion x y delta_x delta_y child state)
+    state box.children
+
 let run ~init ~update ~view =
   let open Raylib in
   let rec loop state =
@@ -375,6 +432,17 @@ let run ~init ~update ~view =
             monitor_height = float (get_monitor_height monitor);
           }
         |> build
+      in
+      let mouse_delta = get_mouse_delta () in
+      let delta_x, delta_y = (Vector2.x mouse_delta, Vector2.y mouse_delta) in
+      let state =
+        if delta_x <> 0. || delta_y <> 0. then
+          let mouse_position = get_mouse_position () in
+          let mouse_x, mouse_y =
+            (Vector2.x mouse_position, Vector2.y mouse_position)
+          in
+          on_mouse_motion mouse_x mouse_y delta_x delta_y element state
+        else state
       in
       set_window_min_size
         (max (int_of_float element.min_width) 1)
