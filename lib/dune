@@ -1,0 +1,4 @@
+(library
+ (public_name MiniUI)
+ (name MiniUI)
+ (libraries raylib))

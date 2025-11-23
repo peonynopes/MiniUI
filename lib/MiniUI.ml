@@ -1,0 +1,352 @@
+module Color = struct
+  open Raylib.Color
+
+  type t = Raylib.Color.t
+
+  let make r g b a = Raylib.Color.create r g b a
+  let beige = beige
+  let black = black
+  let blank = blank
+  let blue = blue
+  let darkblue = darkblue
+  let darkbrown = darkbrown
+  let darkgray = darkgray
+  let darkgreen = darkgreen
+  let darkpurple = darkpurple
+  let gold = gold
+  let gray = gray
+  let magenta = magenta
+  let maroon = maroon
+  let orange = orange
+  let pink = pink
+  let red = red
+  let skyblue = skyblue
+  let violet = violet
+  let white = white
+  let yellow = yellow
+end
+
+type info = {
+  width : float;
+  height : float;
+  monitor_width : float;
+  monitor_height : float;
+}
+
+type size_mode = Fit | Fixed | Grow
+
+type box = {
+  x : float;
+  y : float;
+  width : float;
+  height : float;
+  children : box list;
+  floating : bool;
+  vertical : bool;
+  gap : float;
+  padding_top : float;
+  padding_bottom : float;
+  padding_left : float;
+  padding_right : float;
+  color : Raylib.Color.t;
+  rounding : float;
+  width_mode : size_mode;
+  height_mode : size_mode;
+  needed_width : float;
+  needed_height : float;
+  align_x : float;
+  align_y : float;
+  text : string;
+  text_color : Color.t;
+  text_size : float;
+  text_font : Raylib.Font.t;
+  text_spacing : float;
+}
+
+let box () =
+  {
+    x = 0.;
+    y = 0.;
+    width = 0.;
+    height = 0.;
+    children = [];
+    floating = false;
+    vertical = false;
+    gap = 0.;
+    padding_top = 0.;
+    padding_bottom = 0.;
+    padding_left = 0.;
+    padding_right = 0.;
+    color = Color.blank;
+    rounding = 0.;
+    width_mode = Fit;
+    height_mode = Fit;
+    needed_width = 0.;
+    needed_height = 0.;
+    align_x = 0.;
+    align_y = 0.;
+    text = "";
+    text_color = Color.white;
+    text_size = 12.;
+    text_font = Raylib.get_font_default ();
+    text_spacing = 1.;
+  }
+
+let at x y box = { box with x; y; floating = true }
+let at_x x box = { box with x; floating = true }
+let at_y y box = { box with y; floating = true }
+
+let size width height box =
+  { box with width; height; width_mode = Fixed; height_mode = Fixed }
+
+let width width box = { box with width; width_mode = Fixed }
+let height height box = { box with height; height_mode = Fixed }
+let children children box = { box with children }
+let vertical box = { box with vertical = true }
+let horizontal box = { box with vertical = false }
+let gap gap box = { box with gap }
+let color color box = { box with color }
+let rounding rounding box = { box with rounding }
+let grow_width box = { box with width_mode = Grow; width = 0. }
+let grow_height box = { box with height_mode = Grow; height = 0. }
+let align_x align_x box = { box with align_x }
+let align_y align_y box = { box with align_y }
+let text text box = { box with text }
+let text_color text_color box = { box with text_color }
+let text_size text_size box = { box with text_size }
+let text_font text_font box = { box with text_font }
+let text_spacing text_spacing box = { box with text_spacing }
+
+let grow box =
+  { box with width_mode = Grow; height_mode = Grow; width = 0.; height = 0. }
+
+let padding_top padding_top box = { box with padding_top }
+let padding_bottom padding_bottom box = { box with padding_bottom }
+let padding_left padding_left box = { box with padding_left }
+let padding_right padding_right box = { box with padding_right }
+
+let padding padding box =
+  {
+    box with
+    padding_top = padding;
+    padding_bottom = padding;
+    padding_left = padding;
+    padding_right = padding;
+  }
+
+let rec position box =
+  let _, children =
+    List.fold_left_map
+      (fun offset child ->
+        let offset, child =
+          if child.floating then (offset, child)
+          else if box.vertical then
+            ( offset +. child.height +. box.gap,
+              {
+                child with
+                x = (box.width -. child.width) *. box.align_x;
+                y =
+                  child.y +. offset
+                  +. ((box.height -. box.needed_height) *. box.align_y);
+              } )
+          else
+            ( offset +. child.width +. box.gap,
+              {
+                child with
+                x =
+                  child.x +. offset
+                  +. ((box.width -. box.needed_width) *. box.align_x);
+                y = (box.height -. child.height) *. box.align_y
+              } )
+        in
+        ( offset,
+          position
+            {
+              child with
+              x = child.x +. box.x +. box.padding_left;
+              y = child.y +. box.y +. box.padding_top;
+            } ))
+      (if box.vertical then 0. else 0.)
+      box.children
+  in
+  { box with children }
+
+let rec fit_width box =
+  let children = List.map fit_width box.children in
+  let needed_width =
+    List.fold_left
+      (fun needed_width child ->
+        if box.vertical then max needed_width child.width
+        else needed_width +. child.width)
+      0. children
+  in
+  let needed_width =
+    needed_width +. box.padding_left +. box.padding_right
+    +.
+    if box.vertical then 0.
+    else box.gap *. (float (List.length box.children) -. 1.)
+  in
+  let needed_width =
+    max needed_width
+      (Raylib.Vector2.x
+         (Raylib.measure_text_ex box.text_font box.text box.text_size
+            box.text_spacing)
+      +. box.padding_left +. box.padding_right)
+  in
+  let box =
+    if box.width_mode = Fit then { box with width = needed_width } else box
+  in
+  { box with children; needed_width }
+
+let rec fit_height box =
+  let children = List.map fit_height box.children in
+  let needed_height =
+    List.fold_left
+      (fun needed_height child ->
+        if box.vertical then needed_height +. child.height
+        else max needed_height child.height)
+      0. children
+  in
+  let needed_height =
+    needed_height +. box.padding_top +. box.padding_bottom
+    +.
+    if box.vertical then box.gap *. (float (List.length box.children) -. 1.)
+    else 0.
+  in
+  let needed_height =
+    max needed_height
+      (Raylib.Vector2.y
+         (Raylib.measure_text_ex box.text_font box.text box.text_size
+            box.text_spacing)
+      +. box.padding_top +. box.padding_bottom)
+  in
+  let box =
+    if box.height_mode = Fit then { box with height = needed_height } else box
+  in
+  { box with children; needed_height }
+
+let rec grow_box_width box =
+  let remaining_width = box.width -. box.needed_width in
+  if box.vertical then
+    {
+      box with
+      children =
+        List.map
+          (fun child ->
+            let child =
+              if child.width_mode = Grow then
+                {
+                  child with
+                  width = box.width -. box.padding_left -. box.padding_right;
+                }
+              else child
+            in
+            grow_box_width child)
+          box.children;
+    }
+  else
+    {
+      box with
+      children =
+        List.map
+          (fun child ->
+            let child =
+              if child.width_mode = Grow then
+                { child with width = remaining_width }
+              else child
+            in
+            grow_box_width child)
+          box.children;
+    }
+
+let rec grow_box_height box =
+  let remaining_height = box.height -. box.needed_height in
+  if box.vertical then
+    {
+      box with
+      children =
+        List.map
+          (fun child ->
+            let child =
+              if child.height_mode = Grow then
+                { child with height = remaining_height }
+              else child
+            in
+            grow_box_height child)
+          box.children;
+    }
+  else
+    {
+      box with
+      children =
+        List.map
+          (fun child ->
+            let child =
+              if child.height_mode = Grow then
+                {
+                  child with
+                  height = box.height -. box.padding_top -. box.padding_bottom;
+                }
+              else child
+            in
+            grow_box_height child)
+          box.children;
+    }
+
+let build box =
+  box |> fit_width |> grow_box_width |> fit_height |> grow_box_height
+  |> position
+
+let rec draw box =
+  let open Raylib in
+  if
+    box.x = 0. && box.y = 0.
+    && box.width = float (get_render_width ())
+    && box.height = float (get_render_height ())
+    && box.rounding = 0.
+  then clear_background box.color
+  else
+    draw_rectangle_rounded
+      (Rectangle.create box.x box.y box.width box.height)
+      box.rounding 16 box.color;
+  draw_text_ex box.text_font box.text
+    (Vector2.create box.x box.y)
+    box.text_size box.text_spacing box.text_color;
+  (*draw_rectangle_lines_ex
+    (Rectangle.create box.x box.y box.width box.height)
+    1. Color.skyblue;*)
+  let _ =
+    List.for_all
+      (fun child ->
+        draw child;
+        true)
+      box.children
+  in
+  ()
+
+let run ~init ~update ~view =
+  let open Raylib in
+  let rec loop state =
+    if window_should_close () then close_window ()
+    else
+      let state = update state in
+      let monitor = get_current_monitor () in
+      let element =
+        view state
+          {
+            width = float (get_render_width ());
+            height = float (get_render_height ());
+            monitor_width = float (get_monitor_width monitor);
+            monitor_height = float (get_monitor_height monitor);
+          }
+        |> build
+      in
+      begin_drawing ();
+      draw element;
+      end_drawing ();
+      loop state
+  in
+  set_config_flags [ ConfigFlags.Window_resizable ];
+  (*set_target_fps 30;*)
+  init_window 1920 1080 "MiniUI";
+  loop (init ())
