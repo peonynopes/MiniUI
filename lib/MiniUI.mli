@@ -61,6 +61,11 @@ val text_color : Color.t -> box -> box
 val text_size : float -> box -> box
 val text_font : Raylib.Font.t -> box -> box
 val text_spacing : float -> box -> box
+val min_width : float -> box -> box
+val min_height : float -> box -> box
+val max_width : float -> box -> box
+val max_height : float -> box -> box
+
 
 val run :
   init:(unit -> 'a) -> update:('a -> 'a) -> view:('a -> info -> box) -> unit

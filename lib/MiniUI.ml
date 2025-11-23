@@ -61,6 +61,10 @@ type box = {
   text_size : float;
   text_font : Raylib.Font.t;
   text_spacing : float;
+  min_width : float;
+  min_height : float;
+  max_width : float;
+  max_height : float;
 }
 
 let box () =
@@ -90,6 +94,10 @@ let box () =
     text_size = 12.;
     text_font = Raylib.get_font_default ();
     text_spacing = 1.;
+    min_width = 0.;
+    min_height = 0.;
+    max_width = infinity;
+    max_height = infinity;
   }
 
 let at x y box = { box with x; y; floating = true }
@@ -116,6 +124,10 @@ let text_color text_color box = { box with text_color }
 let text_size text_size box = { box with text_size }
 let text_font text_font box = { box with text_font }
 let text_spacing text_spacing box = { box with text_spacing }
+let min_width min_width box = { box with min_width }
+let min_height min_height box = { box with min_height }
+let max_width max_width box = { box with max_width }
+let max_height max_height box = { box with max_height }
 
 let grow box =
   { box with width_mode = Grow; height_mode = Grow; width = 0.; height = 0. }
@@ -144,7 +156,10 @@ let rec position box =
             ( offset +. child.height +. box.gap,
               {
                 child with
-                x = (box.width -. child.width) *. box.align_x;
+                x =
+                  (box.width -. child.width -. box.padding_left
+                 -. box.padding_right)
+                  *. box.align_x;
                 y =
                   child.y +. offset
                   +. ((box.height -. box.needed_height) *. box.align_y);
@@ -156,7 +171,10 @@ let rec position box =
                 x =
                   child.x +. offset
                   +. ((box.width -. box.needed_width) *. box.align_x);
-                y = (box.height -. child.height) *. box.align_y
+                y =
+                  (box.height -. child.height -. box.padding_top
+                 -. box.padding_bottom)
+                  *. box.align_y;
               } )
         in
         ( offset,
@@ -173,12 +191,14 @@ let rec position box =
 
 let rec fit_width box =
   let children = List.map fit_width box.children in
-  let needed_width =
+  let needed_width, min_width =
     List.fold_left
-      (fun needed_width child ->
-        if box.vertical then max needed_width child.width
-        else needed_width +. child.width)
-      0. children
+      (fun widths child ->
+        let needed_width, min_width = widths in
+        if box.vertical then
+          (max needed_width child.width, max min_width child.min_width)
+        else (needed_width +. child.width, min_width +. child.min_width))
+      (0., 0.) children
   in
   let needed_width =
     needed_width +. box.padding_left +. box.padding_right
@@ -186,26 +206,35 @@ let rec fit_width box =
     if box.vertical then 0.
     else box.gap *. (float (List.length box.children) -. 1.)
   in
-  let needed_width =
-    max needed_width
-      (Raylib.Vector2.x
-         (Raylib.measure_text_ex box.text_font box.text box.text_size
-            box.text_spacing)
-      +. box.padding_left +. box.padding_right)
+  let min_width =
+    min_width +. box.padding_left +. box.padding_right
+    +.
+    if box.vertical then 0.
+    else box.gap *. (float (List.length box.children) -. 1.)
   in
+  let text_width =
+    Raylib.Vector2.x
+      (Raylib.measure_text_ex box.text_font box.text box.text_size
+         box.text_spacing)
+    +. box.padding_left +. box.padding_right
+  in
+  let needed_width = max needed_width text_width in
+  let min_width = max (max min_width text_width) box.min_width in
   let box =
     if box.width_mode = Fit then { box with width = needed_width } else box
   in
-  { box with children; needed_width }
+  { box with children; needed_width; min_width }
 
 let rec fit_height box =
   let children = List.map fit_height box.children in
-  let needed_height =
+  let needed_height, min_height =
     List.fold_left
-      (fun needed_height child ->
-        if box.vertical then needed_height +. child.height
-        else max needed_height child.height)
-      0. children
+      (fun heights child ->
+        let needed_height, min_height = heights in
+        if box.vertical then
+          (needed_height +. child.height, min_height +. child.min_height)
+        else (max needed_height child.height, max min_height child.min_height))
+      (0., 0.) children
   in
   let needed_height =
     needed_height +. box.padding_top +. box.padding_bottom
@@ -213,17 +242,24 @@ let rec fit_height box =
     if box.vertical then box.gap *. (float (List.length box.children) -. 1.)
     else 0.
   in
-  let needed_height =
-    max needed_height
-      (Raylib.Vector2.y
-         (Raylib.measure_text_ex box.text_font box.text box.text_size
-            box.text_spacing)
-      +. box.padding_top +. box.padding_bottom)
+  let min_height =
+    min_height +. box.padding_top +. box.padding_bottom
+    +.
+    if box.vertical then box.gap *. (float (List.length box.children) -. 1.)
+    else 0.
   in
+  let text_height =
+    Raylib.Vector2.y
+      (Raylib.measure_text_ex box.text_font box.text box.text_size
+         box.text_spacing)
+    +. box.padding_top +. box.padding_bottom
+  in
+  let needed_height = max needed_height text_height in
+  let min_height = max (max min_height text_height) box.min_height in
   let box =
     if box.height_mode = Fit then { box with height = needed_height } else box
   in
-  { box with children; needed_height }
+  { box with children; needed_height; min_height }
 
 let rec grow_box_width box =
   let remaining_width = box.width -. box.needed_width in
@@ -312,9 +348,12 @@ let rec draw box =
   draw_text_ex box.text_font box.text
     (Vector2.create box.x box.y)
     box.text_size box.text_spacing box.text_color;
-  (*draw_rectangle_lines_ex
+  draw_rectangle_lines_ex
     (Rectangle.create box.x box.y box.width box.height)
-    1. Color.skyblue;*)
+    1. Color.skyblue;
+  draw_rectangle_lines_ex
+    (Rectangle.create box.x box.y box.max_width box.min_height)
+    1. Color.red;
   let _ =
     List.for_all
       (fun child ->
@@ -341,6 +380,12 @@ let run ~init ~update ~view =
           }
         |> build
       in
+      set_window_min_size
+        (max (int_of_float element.min_width) 1)
+        (max (int_of_float element.min_height) 1);
+      set_window_max_size
+        (int_of_float element.max_width)
+        (int_of_float element.max_height);
       begin_drawing ();
       draw element;
       end_drawing ();
