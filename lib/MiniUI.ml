@@ -34,7 +34,10 @@ type info = {
 }
 
 type size_mode = Fit | Fixed | Grow
-type mouse_button = Left | Middle | Right | Side | Extra | Forward | Back
+
+module Mouse = struct
+  type t = Left | Middle | Right | Side | Extra | Forward | Back
+end
 
 type 'a mouse_motion_callback =
   (float -> float -> float -> float -> 'a box -> 'a -> 'a) option
@@ -72,8 +75,8 @@ and 'a box = {
   on_mouse_moved : 'a mouse_motion_callback;
   on_mouse_enter : 'a mouse_motion_callback;
   on_mouse_leave : 'a mouse_motion_callback;
-  on_mouse_down : (float -> float -> mouse_button -> 'a box -> 'a -> 'a) option;
-  on_mouse_up : (float -> float -> mouse_button -> 'a box -> 'a -> 'a) option;
+  on_mouse_down : (float -> float -> Mouse.t -> 'a box -> 'a -> 'a) option;
+  on_mouse_up : (float -> float -> Mouse.t -> 'a box -> 'a -> 'a) option;
 }
 
 let box () =
@@ -387,18 +390,15 @@ let rec draw box =
   in
   ()
 
-let rec on_mouse_motion x y delta_x delta_y box state =
+let is_in_box x y box =
+  x >= box.x && y >= box.y
+  && x -. box.x <= box.width
+  && y -. box.y <= box.height
+
+let rec mouse_motion_driver x y delta_x delta_y box state =
   let previous_x, previous_y = (x -. delta_x, y -. delta_y) in
-  let was_in_box =
-    previous_x >= box.x && previous_y >= box.y
-    && previous_x -. box.x <= box.width
-    && previous_y -. box.y <= box.height
-  in
-  let is_in_box =
-    x >= box.x && y >= box.y
-    && x -. box.x <= box.width
-    && y -. box.y <= box.height
-  in
+  let was_in_box = is_in_box previous_x previous_y box in
+  let is_in_box = is_in_box x y box in
   let state =
     match box.on_mouse_enter with
     | None -> state
@@ -423,8 +423,46 @@ let rec on_mouse_motion x y delta_x delta_y box state =
         else state
   in
   List.fold_left
-    (fun state child -> on_mouse_motion x y delta_x delta_y child state)
+    (fun state child -> mouse_motion_driver x y delta_x delta_y child state)
     state box.children
+
+let rec mouse_down_driver x y button box state =
+  let state =
+    match box.on_mouse_down with
+    | None -> state
+    | Some callback ->
+        if is_in_box x y box then callback x y button box state else state
+  in
+  List.fold_left
+    (fun state child -> mouse_down_driver x y button child state)
+    state box.children
+
+let rec mouse_up_driver x y button box state =
+  let state =
+    match box.on_mouse_up with
+    | None -> state
+    | Some callback ->
+        if is_in_box x y box then callback x y button box state else state
+  in
+  List.fold_left
+    (fun state child -> mouse_up_driver x y button child state)
+    state box.children
+
+let check_mouse_button button box state =
+  let open Raylib in
+  if is_mouse_button_pressed button then
+    let mouse_position = get_mouse_position () in
+    let mouse_x, mouse_y =
+      (Vector2.x mouse_position, Vector2.y mouse_position)
+    in
+    mouse_down_driver mouse_x mouse_y Mouse.Left box state
+  else if is_mouse_button_released button then
+    let mouse_position = get_mouse_position () in
+    let mouse_x, mouse_y =
+      (Vector2.x mouse_position, Vector2.y mouse_position)
+    in
+    mouse_up_driver mouse_x mouse_y Mouse.Left box state
+  else state
 
 let run ~init ~update ~view =
   let open Raylib in
@@ -451,9 +489,10 @@ let run ~init ~update ~view =
           let mouse_x, mouse_y =
             (Vector2.x mouse_position, Vector2.y mouse_position)
           in
-          on_mouse_motion mouse_x mouse_y delta_x delta_y element state
+          mouse_motion_driver mouse_x mouse_y delta_x delta_y element state
         else state
       in
+      let state = check_mouse_button MouseButton.Left element state in
       set_window_min_size
         (max (int_of_float element.min_width) 1)
         (max (int_of_float element.min_height) 1);

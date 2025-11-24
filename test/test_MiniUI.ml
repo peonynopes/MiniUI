@@ -1,6 +1,6 @@
 open MiniUI
 
-type entry_state = { hover : bool }
+type entry_state = { hover : bool; time : float }
 type menu_state = { a : unit }
 type state = EntryScreen of entry_state | ExampleMenu of menu_state
 
@@ -16,22 +16,22 @@ let entry_screen state info =
          box () |> text "Hello from MiniUI!"
          |> text_spacing (unit *. 0.01)
          |> text_size (unit *. 0.1)
-         |> text_color Color.black;
+         |> text_color (Color.make 0 0 0 (int_of_float (255. *. state.time)));
          box () |> text "(and Raylib)"
          |> text_spacing (unit *. 0.005)
          |> text_size (unit *. 0.05)
          |> text_color Color.darkgray;
-         box () |> text "To menu ->"
+         box () |> text "To example menu ->"
          |> text_size (unit *. 0.05)
          |> text_spacing (unit *. 0.005)
          |> text_color (if state.hover then Color.blue else Color.black)
          |> on_mouse_enter (fun x y dx dy box state ->
              match state with
-             | EntryScreen state -> EntryScreen { hover = true }
+             | EntryScreen state -> EntryScreen { state with hover = true }
              | _ -> state)
          |> on_mouse_leave (fun x y dx dy box state ->
              match state with
-             | EntryScreen state -> EntryScreen { hover = false }
+             | EntryScreen state -> EntryScreen { state with hover = false }
              | _ -> state)
          |> on_mouse_up (fun x y button box state ->
              match state with
@@ -56,8 +56,19 @@ let example_menu state info =
          box () |> grow;
        ]
 
-let init () = EntryScreen { hover = false }
-let update state = state
+let init () = EntryScreen { hover = false; time = 0. }
+
+let update state =
+  match state with
+  | EntryScreen state ->
+      EntryScreen
+        {
+          state with
+          time =
+            (if state.time > 1. then state.time
+             else state.time +. (Raylib.get_frame_time () *. 0.5));
+        }
+  | _ -> state
 
 let view state info =
   match state with
