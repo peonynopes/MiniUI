@@ -34,6 +34,7 @@ type info = {
 }
 
 type size_mode = Fit | Fixed | Grow
+type mouse_button = Left | Middle | Right | Side | Extra | Forward | Back
 
 type 'a mouse_motion_callback =
   (float -> float -> float -> float -> 'a box -> 'a -> 'a) option
@@ -71,6 +72,8 @@ and 'a box = {
   on_mouse_moved : 'a mouse_motion_callback;
   on_mouse_enter : 'a mouse_motion_callback;
   on_mouse_leave : 'a mouse_motion_callback;
+  on_mouse_down : (float -> float -> mouse_button -> 'a box -> 'a -> 'a) option;
+  on_mouse_up : (float -> float -> mouse_button -> 'a box -> 'a -> 'a) option;
 }
 
 let box () =
@@ -107,6 +110,8 @@ let box () =
     on_mouse_moved = None;
     on_mouse_enter = None;
     on_mouse_leave = None;
+    on_mouse_down = None;
+    on_mouse_up = None;
   }
 
 let at x y box = { box with x; y; floating = true }
@@ -146,6 +151,11 @@ let on_mouse_enter on_mouse_enter box =
 
 let on_mouse_leave on_mouse_leave box =
   { box with on_mouse_leave = Some on_mouse_leave }
+
+let on_mouse_down on_mouse_down box =
+  { box with on_mouse_down = Some on_mouse_down }
+
+let on_mouse_up on_mouse_up box = { box with on_mouse_up = Some on_mouse_up }
 
 let grow box =
   { box with width_mode = Grow; height_mode = Grow; width = 0.; height = 0. }

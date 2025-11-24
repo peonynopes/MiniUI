@@ -31,6 +31,7 @@ type info = {
   monitor_height : float;
 }
 
+type mouse_button = Left | Middle | Right | Side | Extra | Forward | Back
 type 'a box
 
 val box : unit -> 'a box
@@ -74,6 +75,12 @@ val on_mouse_enter :
 
 val on_mouse_leave :
   (float -> float -> float -> float -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
+
+val on_mouse_down :
+  (float -> float -> mouse_button -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
+
+val on_mouse_up :
+  (float -> float -> mouse_button -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
 
 val run :
   init:(unit -> 'a) -> update:('a -> 'a) -> view:('a -> info -> 'a box) -> unit
