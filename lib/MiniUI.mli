@@ -34,5 +34,30 @@ val at : float -> float -> 'a box -> 'a box
 val size : float -> float -> 'a box -> 'a box
 val width : float -> 'a box -> 'a box
 val height : float -> 'a box -> 'a box
+val children : 'a box list -> 'a box -> 'a box
+val vertical : 'a box -> 'a box
+val horizontal : 'a box -> 'a box
+val gap : float -> 'a box -> 'a box
+val padding : float -> 'a box -> 'a box
 val color : Color.t -> 'a box -> 'a box
+val rounding : float -> 'a box -> 'a box
+val grow_width : 'a box -> 'a box
+val grow_height : 'a box -> 'a box
+val grow : 'a box -> 'a box
+val padding_top : float -> 'a box -> 'a box
+val padding_bottom : float -> 'a box -> 'a box
+val padding_left : float -> 'a box -> 'a box
+val padding_right : float -> 'a box -> 'a box
+val align_x : float -> 'a box -> 'a box
+val align_y : float -> 'a box -> 'a box
+val text : string -> 'a box -> 'a box
+val text_color : Color.t -> 'a box -> 'a box
+val text_size : float -> 'a box -> 'a box
+val text_font : Raylib.Font.t -> 'a box -> 'a box
+val text_spacing : float -> 'a box -> 'a box
+val min_width : float -> 'a box -> 'a box
+val min_height : float -> 'a box -> 'a box
+val max_width : float -> 'a box -> 'a box
+val max_height : float -> 'a box -> 'a box
 val run : init:(unit -> 'a) -> build:('a -> 'a box) -> update:('a -> 'a) -> unit
+val window : unit -> 'a box
