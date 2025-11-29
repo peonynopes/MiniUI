@@ -1,4 +1,4 @@
-hmodule Color = struct
+module Color = struct
   open Raylib.Color
 
   type t = Raylib.Color.t
