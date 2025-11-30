@@ -29,6 +29,7 @@ type info = {
   height : float;
   monitor_width : float;
   monitor_height : float;
+  unit : float;
 }
 
 module Mouse : sig
@@ -87,10 +88,7 @@ val on_mouse_down :
 val on_mouse_up :
   (float -> float -> Mouse.t -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
 
-type button
-
-val new_button : unit -> button
-val button : button -> 'a box
-
 val run :
   init:(unit -> 'a) -> update:('a -> 'a) -> view:('a -> info -> 'a box) -> unit
+
+val window : unit -> 'a box

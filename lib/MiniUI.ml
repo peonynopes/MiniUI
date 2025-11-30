@@ -31,6 +31,7 @@ type info = {
   height : float;
   monitor_width : float;
   monitor_height : float;
+  unit : float;
 }
 
 type size_mode = Fit | Fixed | Grow
@@ -107,7 +108,7 @@ let box () =
     align_x = 0.;
     align_y = 0.;
     text = "";
-    text_color = Color.white;
+    text_color = Color.black;
     text_size = 12.;
     text_font = Raylib.get_font_default ();
     text_spacing = 1.;
@@ -308,73 +309,89 @@ let rec fit_height box =
   in
   { box with children; needed_height; min_height }
 
-let rec size_width box =
-  let remaining_width = box.width -. box.needed_width in
-  if box.vertical then
-    {
-      box with
-      children =
-        List.map
-          (fun child ->
-            let child =
-              if child.width_mode = Grow then
-                {
-                  child with
-                  width = box.width -. box.padding_left -. box.padding_right;
-                }
-              else child
-            in
-            size_width child)
-          box.children;
-    }
-  else
-    {
-      box with
-      children =
-        List.map
-          (fun child ->
-            let child =
-              if child.width_mode = Grow then
-                { child with width = remaining_width }
-              else child
-            in
-            size_width child)
-          box.children;
-    }
+let size_width box =
+  let rec loop box =
+    let remaining_width = box.width -. box.needed_width in
+    if box.vertical then
+      {
+        box with
+        children =
+          List.map
+            (fun child ->
+              let child =
+                if child.width_mode = Grow then
+                  {
+                    child with
+                    width = box.width -. box.padding_left -. box.padding_right;
+                  }
+                else child
+              in
+              loop child)
+            box.children;
+      }
+    else
+      {
+        box with
+        children =
+          List.map
+            (fun child ->
+              let child =
+                if child.width_mode = Grow then
+                  { child with width = remaining_width }
+                else child
+              in
+              loop child)
+            box.children;
+      }
+  in
+  {
+    (loop box) with
+    width =
+      (if box.width_mode = Grow then float_of_int (Raylib.get_render_width ())
+       else box.width);
+  }
 
-let rec size_height box =
-  let remaining_height = box.height -. box.needed_height in
-  if box.vertical then
-    {
-      box with
-      children =
-        List.map
-          (fun child ->
-            let child =
-              if child.height_mode = Grow then
-                { child with height = remaining_height }
-              else child
-            in
-            size_height child)
-          box.children;
-    }
-  else
-    {
-      box with
-      children =
-        List.map
-          (fun child ->
-            let child =
-              if child.height_mode = Grow then
-                {
-                  child with
-                  height = box.height -. box.padding_top -. box.padding_bottom;
-                }
-              else child
-            in
-            size_height child)
-          box.children;
-    }
+let size_height box =
+  let rec loop box =
+    let remaining_height = box.height -. box.needed_height in
+    if box.vertical then
+      {
+        box with
+        children =
+          List.map
+            (fun child ->
+              let child =
+                if child.height_mode = Grow then
+                  { child with height = remaining_height }
+                else child
+              in
+              loop child)
+            box.children;
+      }
+    else
+      {
+        box with
+        children =
+          List.map
+            (fun child ->
+              let child =
+                if child.height_mode = Grow then
+                  {
+                    child with
+                    height = box.height -. box.padding_top -. box.padding_bottom;
+                  }
+                else child
+              in
+              loop child)
+            box.children;
+      }
+  in
+  {
+    (loop box) with
+    height =
+      (if box.height_mode = Grow then float_of_int (Raylib.get_render_height ())
+       else box.height);
+  }
 
 let build box =
   box |> fit_width |> size_width |> fit_height |> size_height |> position
@@ -392,7 +409,7 @@ let rec draw box =
       (Rectangle.create box.x box.y box.width box.height)
       box.rounding 16 box.color;
   draw_text_ex box.text_font box.text
-    (Vector2.create box.x box.y)
+    (Vector2.create (box.x +. box.padding_left) (box.y +. box.padding_top))
     box.text_size box.text_spacing box.text_color;
   (*draw_rectangle_lines_ex
     (Rectangle.create box.x box.y box.width box.height)
@@ -493,7 +510,10 @@ let run ~init ~update ~view =
             width = float (get_render_width ());
             height = float (get_render_height ());
             monitor_width = float (get_monitor_width monitor);
-            monitor_height = float (get_monitor_height monitor);
+            monitor_height = float (get_monitor_width monitor);
+            unit =
+              float
+                (min (get_monitor_width monitor) (get_monitor_height monitor));
           }
         |> build
       in
@@ -534,3 +554,6 @@ let run ~init ~update ~view =
   (*set_target_fps 30;*)
   init_window 1920 1080 "MiniUI";
   loop (init ())
+
+let window () =
+  box () |> grow |> align_x 0.5 |> align_y 0.5 |> color Color.white
