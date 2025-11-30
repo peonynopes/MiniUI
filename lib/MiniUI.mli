@@ -24,7 +24,19 @@ module Color : sig
   val yellow : t
 end
 
+type info = {
+  width : float;
+  height : float;
+  monitor_width : float;
+  monitor_height : float;
+}
+
+module Mouse : sig
+  type t = Left | Middle | Right | Side | Extra | Forward | Back
+end
+
 type state = ..
+type state += NoState
 type 'a box
 
 val box : unit -> 'a box
@@ -59,5 +71,26 @@ val min_width : float -> 'a box -> 'a box
 val min_height : float -> 'a box -> 'a box
 val max_width : float -> 'a box -> 'a box
 val max_height : float -> 'a box -> 'a box
-val run : init:(unit -> 'a) -> build:('a -> 'a box) -> update:('a -> 'a) -> unit
-val window : unit -> 'a box
+
+val on_mouse_moved :
+  (float -> float -> float -> float -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
+
+val on_mouse_enter :
+  (float -> float -> float -> float -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
+
+val on_mouse_leave :
+  (float -> float -> float -> float -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
+
+val on_mouse_down :
+  (float -> float -> Mouse.t -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
+
+val on_mouse_up :
+  (float -> float -> Mouse.t -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
+
+type button
+
+val new_button : unit -> button
+val button : button -> 'a box
+
+val run :
+  init:(unit -> 'a) -> update:('a -> 'a) -> view:('a -> info -> 'a box) -> unit

@@ -1,10 +1,11 @@
 open MiniUI
 
-let init () = 0
+type state = { counter : int; button : button }
+
+let init () = { counter = 0; button = new_button () }
 let update counter = counter
 
-let build _ =
-  window () |> color Color.white
-  |> children [ box () |> color Color.blue |> size 128. 128. ]
+let view state _ =
+  box () |> padding 8. |> children [ button state.button |> size 128. 128. ]
 
-let () = run ~init ~build ~update
+let () = run ~init ~view ~update
