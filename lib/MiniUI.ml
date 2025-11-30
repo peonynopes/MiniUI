@@ -199,6 +199,7 @@ let padding padding box =
   }
 
 let border border box = { box with border }
+let center box = { box with align_x = 0.5; align_y = 0.5 }
 
 let rec position box =
   let _, children =
@@ -238,8 +239,7 @@ let rec position box =
               x = child.x +. box.x +. box.padding_left +. box.border;
               y = child.y +. box.y +. box.padding_top +. box.border;
             } ))
-      (if box.vertical then 0. else 0.)
-      box.children
+      0. box.children
   in
   { box with children }
 
@@ -317,7 +317,6 @@ let rec fit_height box =
 
 let size_width box =
   let rec loop box =
-    let remaining_width = box.width -. box.needed_width in
     if box.vertical then
       {
         box with
@@ -338,44 +337,44 @@ let size_width box =
             box.children;
       }
     else
-      {
-        box with
-        children =
-          List.map
-            (fun child ->
-              let child =
-                if child.width_mode = Grow then
-                  { child with width = remaining_width }
-                else child
-              in
-              loop child)
-            box.children;
-      }
+      let remaining_width, children =
+        List.fold_left_map
+          (fun remaining_width child ->
+            let remaining_width, child =
+              if child.width_mode = Grow then
+                (0., { child with width = remaining_width })
+              else (remaining_width, child)
+            in
+            (remaining_width, loop child))
+          (box.width -. box.needed_width)
+          box.children
+      in
+      { box with needed_width = box.width -. remaining_width; children }
   in
-  {
-    (loop box) with
-    width =
-      (if box.width_mode = Grow then float_of_int (Raylib.get_render_width ())
-       else box.width);
-  }
+  loop
+    {
+      box with
+      width =
+        (if box.width_mode = Grow then float_of_int (Raylib.get_render_width ())
+         else box.width);
+    }
 
 let size_height box =
   let rec loop box =
-    let remaining_height = box.height -. box.needed_height in
     if box.vertical then
-      {
-        box with
-        children =
-          List.map
-            (fun child ->
-              let child =
-                if child.height_mode = Grow then
-                  { child with height = remaining_height }
-                else child
-              in
-              loop child)
-            box.children;
-      }
+      let remaining_height, children =
+        List.fold_left_map
+          (fun remaining_height child ->
+            let remaining_height, child =
+              if child.height_mode = Grow then
+                (0., { child with height = remaining_height })
+              else (remaining_height, child)
+            in
+            (remaining_height, loop child))
+          (box.height -. box.needed_height)
+          box.children
+      in
+      { box with needed_height = box.height -. remaining_height; children }
     else
       {
         box with
@@ -396,12 +395,15 @@ let size_height box =
             box.children;
       }
   in
-  {
-    (loop box) with
-    height =
-      (if box.height_mode = Grow then float_of_int (Raylib.get_render_height ())
-       else box.height);
-  }
+
+  loop
+    {
+      box with
+      height =
+        (if box.height_mode = Grow then
+           float_of_int (Raylib.get_render_height ())
+         else box.height);
+    }
 
 let build box =
   box |> fit_width |> size_width |> fit_height |> size_height |> position
@@ -431,7 +433,7 @@ let rec draw box =
     box.text_size box.text_spacing box.text_color;
   if box.border <> 0. && Color.a box.border_color <> 0 then
     draw_rectangle_rounded_lines_ex
-      (Rectangle.create box.x box.y box.width box.height)
+      (Rectangle.create draw_x draw_y draw_width draw_height)
       box.rounding 16 box.border box.border_color;
   (*draw_rectangle_lines_ex
     (Rectangle.create box.x box.y box.width box.height)
@@ -579,3 +581,7 @@ let run ~init ~update ~view =
 
 let window info =
   box info |> grow |> align_x 0.5 |> align_y 0.5 |> color Color.white
+  |> vertical
+
+let button info =
+  box info |> border (info.unit *. 0.005) |> padding (info.unit *. 0.005)

@@ -73,6 +73,7 @@ val min_height : float -> 'a box -> 'a box
 val max_width : float -> 'a box -> 'a box
 val max_height : float -> 'a box -> 'a box
 val border : float -> 'a box -> 'a box
+val center : 'a box -> 'a box
 
 val on_mouse_moved :
   (float -> float -> float -> float -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
@@ -93,3 +94,4 @@ val run :
   init:(unit -> 'a) -> update:('a -> 'a) -> view:('a -> info -> 'a box) -> unit
 
 val window : info -> 'a box
+val button : info -> 'a box
