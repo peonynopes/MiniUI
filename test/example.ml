@@ -6,11 +6,12 @@ let init () = Counter 0
 let update state = state
 
 let counter_example counter info =
-  window ()
+  window info
   |> padding (info.unit *. 0.01)
   |> children
        [
-         box ()
+         box info
+         |> border (info.unit *. 0.005)
          |> padding (info.unit *. 0.01)
          |> text_size (info.unit *. 0.04)
          |> text (string_of_int counter)
@@ -22,8 +23,8 @@ let counter_example counter info =
 
 let view state info =
   match state with
-  | WelcomeScreen -> box ()
-  | ExampleList -> box ()
+  | WelcomeScreen -> box info
+  | ExampleList -> box info
   | Counter counter -> counter_example counter info
 
 let () = run ~init ~view ~update

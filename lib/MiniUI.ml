@@ -82,9 +82,11 @@ and 'a box = {
   on_mouse_leave : 'a mouse_motion_callback;
   on_mouse_down : (float -> float -> Mouse.t -> 'a box -> 'a -> 'a) option;
   on_mouse_up : (float -> float -> Mouse.t -> 'a box -> 'a -> 'a) option;
+  border : float;
+  border_color : Color.t;
 }
 
-let box () =
+let box info =
   {
     state = NoState;
     x = 0.;
@@ -108,10 +110,10 @@ let box () =
     align_x = 0.;
     align_y = 0.;
     text = "";
-    text_color = Color.black;
-    text_size = 12.;
+    text_color = Color.gray;
+    text_size = info.unit *. 0.04;
     text_font = Raylib.get_font_default ();
-    text_spacing = 1.;
+    text_spacing = info.unit *. 0.004;
     min_width = 0.;
     min_height = 0.;
     max_width = infinity;
@@ -121,6 +123,8 @@ let box () =
     on_mouse_leave = None;
     on_mouse_down = None;
     on_mouse_up = None;
+    border = 0.;
+    border_color = Color.gray;
   }
 
 let at x y box = { box with x; y; floating = true }
@@ -194,6 +198,8 @@ let padding padding box =
     padding_right = padding;
   }
 
+let border border box = { box with border }
+
 let rec position box =
   let _, children =
     List.fold_left_map
@@ -206,7 +212,7 @@ let rec position box =
                 child with
                 x =
                   (box.width -. child.width -. box.padding_left
-                 -. box.padding_right)
+                 -. box.padding_right -. (box.border *. 2.))
                   *. box.align_x;
                 y =
                   child.y +. offset
@@ -221,7 +227,7 @@ let rec position box =
                   +. ((box.width -. box.needed_width) *. box.align_x);
                 y =
                   (box.height -. child.height -. box.padding_top
-                 -. box.padding_bottom)
+                 -. box.padding_bottom -. (box.border *. 2.))
                   *. box.align_y;
               } )
         in
@@ -229,8 +235,8 @@ let rec position box =
           position
             {
               child with
-              x = child.x +. box.x +. box.padding_left;
-              y = child.y +. box.y +. box.padding_top;
+              x = child.x +. box.x +. box.padding_left +. box.border;
+              y = child.y +. box.y +. box.padding_top +. box.border;
             } ))
       (if box.vertical then 0. else 0.)
       box.children
@@ -249,13 +255,13 @@ let rec fit_width box =
       (0., 0.) children
   in
   let needed_width =
-    needed_width +. box.padding_left +. box.padding_right
+    needed_width +. box.padding_left +. box.padding_right +. (box.border *. 2.)
     +.
     if box.vertical then 0.
     else box.gap *. (float (List.length box.children) -. 1.)
   in
   let min_width =
-    min_width +. box.padding_left +. box.padding_right
+    min_width +. box.padding_left +. box.padding_right +. (box.border *. 2.)
     +.
     if box.vertical then 0.
     else box.gap *. (float (List.length box.children) -. 1.)
@@ -264,7 +270,7 @@ let rec fit_width box =
     Raylib.Vector2.x
       (Raylib.measure_text_ex box.text_font box.text box.text_size
          box.text_spacing)
-    +. box.padding_left +. box.padding_right
+    +. box.padding_left +. box.padding_right +. (box.border *. 2.)
   in
   let needed_width = max needed_width text_width in
   let min_width = max (max min_width text_width) box.min_width in
@@ -285,13 +291,13 @@ let rec fit_height box =
       (0., 0.) children
   in
   let needed_height =
-    needed_height +. box.padding_top +. box.padding_bottom
+    needed_height +. box.padding_top +. box.padding_bottom +. (box.border *. 2.)
     +.
     if box.vertical then box.gap *. (float (List.length box.children) -. 1.)
     else 0.
   in
   let min_height =
-    min_height +. box.padding_top +. box.padding_bottom
+    min_height +. box.padding_top +. box.padding_bottom +. (box.border *. 2.)
     +.
     if box.vertical then box.gap *. (float (List.length box.children) -. 1.)
     else 0.
@@ -300,7 +306,7 @@ let rec fit_height box =
     Raylib.Vector2.y
       (Raylib.measure_text_ex box.text_font box.text box.text_size
          box.text_spacing)
-    +. box.padding_top +. box.padding_bottom
+    +. box.padding_top +. box.padding_bottom +. (box.border *. 2.)
   in
   let needed_height = max needed_height text_height in
   let min_height = max (max min_height text_height) box.min_height in
@@ -322,7 +328,9 @@ let size_width box =
                 if child.width_mode = Grow then
                   {
                     child with
-                    width = box.width -. box.padding_left -. box.padding_right;
+                    width =
+                      box.width -. box.padding_left -. box.padding_right
+                      -. (box.border *. 2.);
                   }
                 else child
               in
@@ -378,7 +386,9 @@ let size_height box =
                 if child.height_mode = Grow then
                   {
                     child with
-                    height = box.height -. box.padding_top -. box.padding_bottom;
+                    height =
+                      box.height -. box.padding_top -. box.padding_bottom
+                      -. (box.border *. 2.);
                   }
                 else child
               in
@@ -397,20 +407,32 @@ let build box =
   box |> fit_width |> size_width |> fit_height |> size_height |> position
 
 let rec draw box =
+  let draw_x, draw_y, draw_width, draw_height =
+    ( box.x +. box.border,
+      box.y +. box.border,
+      box.width -. (box.border *. 2.),
+      box.height -. (box.border *. 2.) )
+  in
   let open Raylib in
   if
-    box.x = 0. && box.y = 0.
-    && box.width = float (get_render_width ())
-    && box.height = float (get_render_height ())
+    draw_x = 0. && draw_y = 0.
+    && draw_width = float (get_render_width ())
+    && draw_height = float (get_render_height ())
     && box.rounding = 0.
   then clear_background box.color
   else
     draw_rectangle_rounded
-      (Rectangle.create box.x box.y box.width box.height)
+      (Rectangle.create draw_x draw_y draw_width draw_height)
       box.rounding 16 box.color;
   draw_text_ex box.text_font box.text
-    (Vector2.create (box.x +. box.padding_left) (box.y +. box.padding_top))
+    (Vector2.create
+       (box.x +. box.padding_left +. box.border)
+       (box.y +. box.padding_top +. box.border))
     box.text_size box.text_spacing box.text_color;
+  if box.border <> 0. && Color.a box.border_color <> 0 then
+    draw_rectangle_rounded_lines_ex
+      (Rectangle.create box.x box.y box.width box.height)
+      box.rounding 16 box.border box.border_color;
   (*draw_rectangle_lines_ex
     (Rectangle.create box.x box.y box.width box.height)
     1. Color.skyblue;*)
@@ -555,5 +577,5 @@ let run ~init ~update ~view =
   init_window 1920 1080 "MiniUI";
   loop (init ())
 
-let window () =
-  box () |> grow |> align_x 0.5 |> align_y 0.5 |> color Color.white
+let window info =
+  box info |> grow |> align_x 0.5 |> align_y 0.5 |> color Color.white

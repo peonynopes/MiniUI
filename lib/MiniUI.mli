@@ -40,7 +40,7 @@ type state = ..
 type state += NoState
 type 'a box
 
-val box : unit -> 'a box
+val box : info -> 'a box
 val at_x : float -> 'a box -> 'a box
 val at_y : float -> 'a box -> 'a box
 val at : float -> float -> 'a box -> 'a box
@@ -72,6 +72,7 @@ val min_width : float -> 'a box -> 'a box
 val min_height : float -> 'a box -> 'a box
 val max_width : float -> 'a box -> 'a box
 val max_height : float -> 'a box -> 'a box
+val border : float -> 'a box -> 'a box
 
 val on_mouse_moved :
   (float -> float -> float -> float -> 'a box -> 'a -> 'a) -> 'a box -> 'a box
@@ -91,4 +92,4 @@ val on_mouse_up :
 val run :
   init:(unit -> 'a) -> update:('a -> 'a) -> view:('a -> info -> 'a box) -> unit
 
-val window : unit -> 'a box
+val window : info -> 'a box
