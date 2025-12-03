@@ -6,7 +6,8 @@ let init () = ExampleList
 let update state = state
 
 let example_entry name info onclick =
-  box info |> text name |> on_mouse_up (fun _ _ button _ state -> onclick)
+  button info |> text name |> grow_width
+  |> on_mouse_up (fun _ _ button _ state -> onclick)
 
 let example_list info =
   window info

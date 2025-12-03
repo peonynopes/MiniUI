@@ -584,4 +584,7 @@ let window info =
   |> vertical
 
 let button info =
-  box info |> border (info.unit *. 0.005) |> padding (info.unit *. 0.005)
+  box info
+  |> border (info.unit *. 0.005)
+  |> padding (info.unit *. 0.005)
+  |> color Color.white
